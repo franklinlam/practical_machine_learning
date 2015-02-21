@@ -1,0 +1,94 @@
+---
+title: "Practical Machine Learning Project"
+author: "Franklin Lam"
+date: "21 February, 2015"
+output: html_document
+---
+
+# Introduction
+This project aims to predict the manner in which people using devices such as Jawbone Up, Nike FuelBand, and Fitbit did the exercise. Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants are collected. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. Tree-based models including CART model and random forest model were compared and selected for classifying the testing data.
+
+# Data preparation
+
+The training and testing data are downloaded from:
+
+- Training data - https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+- Testing data - https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data sets are cleaned by:
+1. deleting variables with missing values; and 
+2. deleting the first observation related variables that are unrelated to the problem.
+
+```{r}
+training_data <- read.csv("pml-training.csv" , na.strings=c("NA",""), header=TRUE)
+testing_data <- read.csv("pml-testing.csv" , na.strings=c("NA",""), header=TRUE)
+training_data <- training_data[ , apply( training_data , 2 , function(x) all(!is.na(x)) ) ]
+testing_data <- testing_data[ , apply( testing_data , 2 , function(x) all(!is.na(x)) ) ]
+training_data <- training_data[,-(1:7)]
+testing_data <- testing_data[,-(1:7)]
+```
+
+A total of 52 variables (excluding the classification variable classe) remains.
+```{r, echo=FALSE}
+colnames(training_data)
+```
+
+The training data is splitted into a training and testing subset for modelling building:
+```{r, message=FALSE}
+library(caret)
+set.seed(125)
+intrain<-createDataPartition(y=training_data$classe,p=0.75,list=FALSE)
+train_set <- training_data[intrain,]
+test_set <- training_data[-intrain,]
+```
+  
+# Prediction model
+Two tree-based prediction models were developed and compared as follows:
+
+A. CART model
+
+The CART model was obtained using the train_set and then evaluated using the test_set giving the following result. The model can only achieve 49.97% accuracy and the performance is disappointing. The expected out of sample error is equal to 1 - 0.4997 = 0.5003.
+
+```{r, message=FALSE}
+library(caret)
+library(rattle)
+fit_rpart <- train(classe~.,data=train_set,
+                   preProcess=c("center", "scale"), 
+                   trControl=trainControl(method = "cv", number = 4), 
+                   method="rpart")
+print(fit_rpart, digits=3)
+fancyRpartPlot(fit_rpart$finalModel)
+pred_rpart <- predict(fit_rpart, test_set)
+confusionMatrix(pred_rpart, test_set$classe)
+```
+
+B. Random forest model
+
+The random forest model was obtained using the train_set and then evaluated using the test_set giving the following result. The model can achieve much higher accuracy of over 99.29%. The expected out of sample error is equal to 1 - 0.9929 = 0.0071. So, the random forecast model is recommended to be adopted as the prediction model.
+
+```{r, message=FALSE}
+library(caret)
+library(rattle)
+fit_rf <- train(classe~.,data=train_set,
+                preProcess=c("center", "scale"), 
+                trControl=trainControl(method = "cv", number = 4),prox=TRUE, 
+                method="rf")
+print(fit_rf, digits=3)
+pred_rf <- predict(fit_rf, test_set)
+confusionMatrix(pred_rf, test_set$classe)
+```
+
+# Conclusions
+Two tree-based models, namely CART model and random forest model, were compared using the provided training data. The results show that random forest model outperforms CART model. Therefore, the random forest is the recommended prediction model for the problem.
+```{r, message=FALSE, echo=FALSE}
+print(fit_rf, digits=3)
+```
+
+The following is the final classification of testing data applying the random forest prediction model with expected out of sample error equal to 0.0071.
+```{r, message=FALSE}
+library(caret)
+library(rattle)
+pred_rf <- predict(fit_rf, testing_data)
+print(pred_rf)
+```
+
